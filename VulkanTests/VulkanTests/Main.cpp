@@ -127,6 +127,13 @@ private:
         app->framebufferResized = true;
     }
 
+    /*NOTICE: most of vulkan's setup consists of very similar actions, most of what you will see here will look like this:
+    * 
+    * we need to create X:
+    *   create XCreateInfo struct and set it to your needed values
+    *   run the createX function
+    * 
+    */
     void initVulkan() {
         createInstance();
         setupDebugMessenger();
@@ -492,6 +499,7 @@ private:
         dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
+        //specify render pass info (attachments, subbpasses, depencendies etc...)
         VkRenderPassCreateInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
         renderPassInfo.attachmentCount = 1;
@@ -501,44 +509,53 @@ private:
         renderPassInfo.dependencyCount = 1;
         renderPassInfo.pDependencies = &dependency;
 
+        //create the render pass
         if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
             throw std::runtime_error("failed to create render pass!");
         }
     }
 
+    //most of what we do in this function is create all the different pipeline stages and states
     void createGraphicsPipeline() {
 
         //read the shader files
         auto vertShaderCode = readFile("vert.spv");
         auto fragShaderCode = readFile("frag.spv");
 
+        //create the shader modules
         VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
         VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
+        //define the vertex shader stage
         VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
         vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
         vertShaderStageInfo.module = vertShaderModule;
         vertShaderStageInfo.pName = "main";
 
+        //define the fragment shader stage
         VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
         fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
         fragShaderStageInfo.module = fragShaderModule;
         fragShaderStageInfo.pName = "main";
 
+        //hold the vertex and fragment stages definitions inside an array
         VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
+        //define pipeline vertex input state create info
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         vertexInputInfo.vertexBindingDescriptionCount = 0;
         vertexInputInfo.vertexAttributeDescriptionCount = 0;
 
+        //define pipeline input assembly state create info
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         inputAssembly.primitiveRestartEnable = VK_FALSE;
 
+        //define the viewport, the viewport is the portion of the swapchain image we render into
         VkViewport viewport{};
         viewport.x = 0.0f;
         viewport.y = 0.0f;
@@ -547,10 +564,12 @@ private:
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
 
+        //define the scissor, the scissor is like mask to discard (cut out) a portion of the viewport
         VkRect2D scissor{};
         scissor.offset = { 0, 0 };
         scissor.extent = swapChainExtent;
 
+        //define the viewport state create info
         VkPipelineViewportStateCreateInfo viewportState{};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         viewportState.viewportCount = 1;
@@ -558,6 +577,7 @@ private:
         viewportState.scissorCount = 1;
         viewportState.pScissors = &scissor;
 
+        //define the rasterization state create info
         VkPipelineRasterizationStateCreateInfo rasterizer{};
         rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
         rasterizer.depthClampEnable = VK_FALSE;
@@ -568,15 +588,18 @@ private:
         rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
 
+        //define the multisample state create info
         VkPipelineMultisampleStateCreateInfo multisampling{};
         multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         multisampling.sampleShadingEnable = VK_FALSE;
         multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
+        //create a pipeline color blend attachment state attachment
         VkPipelineColorBlendAttachmentState colorBlendAttachment{};
         colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
         colorBlendAttachment.blendEnable = VK_FALSE;
 
+        //define the color blend state create info
         VkPipelineColorBlendStateCreateInfo colorBlending{};
         colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         colorBlending.logicOpEnable = VK_FALSE;
@@ -588,15 +611,20 @@ private:
         colorBlending.blendConstants[2] = 0.0f;
         colorBlending.blendConstants[3] = 0.0f;
 
+        //define the pipeline layout create info
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = 0;
         pipelineLayoutInfo.pushConstantRangeCount = 0;
 
+        //create the pipeline layout
         if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create pipeline layout!");
         }
 
+        //finally at the end of this long setup function, we use all the state definitions we made to create the graphics pipeline!
+
+        //create the gaphics pipeline create info
         VkGraphicsPipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         pipelineInfo.stageCount = 2;
@@ -612,17 +640,21 @@ private:
         pipelineInfo.subpass = 0;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
+        //create the graphics pipeline
         if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
             throw std::runtime_error("failed to create graphics pipeline!");
         }
 
+        //now that we created the pipeline using our shader modules, we can delete them
         vkDestroyShaderModule(device, fragShaderModule, nullptr);
         vkDestroyShaderModule(device, vertShaderModule, nullptr);
     }
 
+    
     void createFramebuffers() {
         swapChainFramebuffers.resize(swapChainImageViews.size());
 
+        //for each image view, we create a corresponding frame buffer
         for (size_t i = 0; i < swapChainImageViews.size(); i++) {
             VkImageView attachments[] = {
                 swapChainImageViews[i]
@@ -790,11 +822,13 @@ private:
     }
 
     VkShaderModule createShaderModule(const std::vector<char>& code) {
+        //define the shader module create info
         VkShaderModuleCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         createInfo.codeSize = code.size();
         createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
+        //create the shader module
         VkShaderModule shaderModule;
         if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
             throw std::runtime_error("failed to create shader module!");
